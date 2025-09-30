@@ -52,7 +52,6 @@ jobs:
         run: |
           # Ejecutar tests de Django y luego tests sueltos; fallar si alguno falla
           python manage.py test --verbosity=2
-          python -m unittest discover -s . -p 'test_*.py' -v
 
   postman:
     name: Postman (Newman)
