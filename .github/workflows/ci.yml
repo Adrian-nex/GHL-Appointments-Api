@@ -57,7 +57,8 @@ jobs:
     name: Postman (Newman)
     needs: test
     runs-on: ubuntu-latest
-    if: ${{ secrets.GHL_ACCESS_TOKEN != '' }}
+    env:
+      GHL_ACCESS_TOKEN: ${{ secrets.GHL_ACCESS_TOKEN }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -111,6 +112,7 @@ jobs:
         run: npm install -g newman
 
       - name: Run Postman collection with Newman
+        if: ${{ env.GHL_ACCESS_TOKEN != '' }}
         run: |
           newman run docs/GHL_API_Collection_Updated.postman_collection.json \
             --env-var base_url=http://127.0.0.1:8000 \
