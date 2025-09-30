@@ -53,3 +53,78 @@ jobs:
           # Ejecutar tests de Django y luego tests sueltos; fallar si alguno falla
           python manage.py test --verbosity=2
           python -m unittest discover -s . -p 'test_*.py' -v
+
+  postman:
+    name: Postman (Newman)
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Cache pip
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/pip
+          key: ${{ runner.os }}-py-3.11-pip-${{ hashFiles('**/requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-py-3.11-pip-
+
+      - name: Install Python deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r backend/requirements.txt
+
+      - name: Apply migrations
+        working-directory: backend
+        run: |
+          python manage.py migrate --noinput
+
+      - name: Launch Django dev server
+        working-directory: backend
+        run: |
+          nohup python manage.py runserver 127.0.0.1:8000 > server.log 2>&1 &
+          echo $! > django.pid
+
+      - name: Wait for server to be ready
+        run: |
+          for i in {1..60}; do
+            if curl -sSf http://127.0.0.1:8000/ > /dev/null; then
+              echo "Server is up"; exit 0;
+            fi
+            sleep 1
+          done
+          echo "Server did not start in time"; cat backend/server.log || true; exit 1
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install Newman
+        run: npm install -g newman
+
+      - name: Run Postman collection with Newman
+        run: |
+          newman run docs/GHL_API_Collection_Updated.postman_collection.json \
+            --env-var base_url=http://127.0.0.1:8000 \
+            --reporters cli
+
+      - name: Show server logs on failure
+        if: failure()
+        run: |
+          echo "==== Django server log ===="
+          cat backend/server.log || true
+
+      - name: Stop Django server
+        if: always()
+        run: |
+          if [ -f backend/django.pid ]; then
+            kill $(cat backend/django.pid) || true
+          fi
