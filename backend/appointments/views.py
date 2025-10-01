@@ -23,7 +23,7 @@ load_dotenv()
 # Constantes GHL
 GHL_BASE_URL = "https://services.leadconnectorhq.com"
 GHL_API_VERSION = os.getenv("GHL_API_VERSION", "2021-04-15")
-ACCESS_TOKEN = os.getenv("GHL_ACCESS_TOKEN")
+GHL_API_KEY = os.getenv("GHL_API_KEY")
 GHL_LOCATION_ID = os.getenv("GHL_LOCATION_ID")  # fallback si viene vacío en el webhook
 GHL_DEFAULT_ASSIGNED_USER_ID = os.getenv("GHL_ASSIGNED_USER_ID")
 
@@ -44,8 +44,8 @@ def _to_datetime(iso_str):
 class AppointmentCreateView(APIView):
     """Crear una cita en GHL y guardarla en MySQL (ya lo tenías)."""
     def post(self, request, *args, **kwargs):
-        if not ACCESS_TOKEN:
-            return Response({"error": "Falta GHL_ACCESS_TOKEN en servidor"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        if not GHL_API_KEY:
+            return Response({"error": "Falta GHL_API_KEY en servidor"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         data = request.data or {}
         required_fields = ["calendarId", "contactId", "startTime", "endTime"]
         for field in required_fields:
@@ -67,7 +67,7 @@ class AppointmentCreateView(APIView):
             )
 
         headers = {
-            "Authorization": f"Bearer {ACCESS_TOKEN}",
+            "Authorization": f"Bearer {GHL_API_KEY}",
             "Version": GHL_API_VERSION,
             "Content-Type": "application/json",
             "LocationId": location_id
@@ -199,8 +199,8 @@ def ghl_webhook(request):
 class AppointmentUpdateView(APIView):
     """Actualizar cita en GHL y sincronizar BD local."""
     def put(self, request, appointment_id):
-        if not ACCESS_TOKEN:
-            return Response({"error": "Falta GHL_ACCESS_TOKEN en servidor"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        if not GHL_API_KEY:
+            return Response({"error": "Falta GHL_API_KEY en servidor"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         
         # Verificar que la cita existe en la BD local
         appointment = Appointment.objects.filter(ghl_id=appointment_id).first()
@@ -212,7 +212,7 @@ class AppointmentUpdateView(APIView):
             return Response({"error": "No se encontró locationId para la cita"}, status=status.HTTP_400_BAD_REQUEST)
 
         headers = {
-            "Authorization": f"Bearer {ACCESS_TOKEN}",
+            "Authorization": f"Bearer {GHL_API_KEY}",
             "Version": GHL_API_VERSION,
             "Content-Type": "application/json",
             "LocationId": location_id
@@ -313,13 +313,13 @@ class AppointmentUpdateView(APIView):
 class AppointmentDeleteView(APIView):
     """Cancelar cita en GHL (PUT appointmentStatus=cancelled)."""
     def delete(self, request, appointment_id):
-        if not ACCESS_TOKEN:
-            return Response({"error": "Falta GHL_ACCESS_TOKEN en servidor"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        if not GHL_API_KEY:
+            return Response({"error": "Falta GHL_API_KEY en servidor"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         appointment = Appointment.objects.filter(ghl_id=appointment_id).first()
         location_id = appointment.location_id if appointment else GHL_LOCATION_ID
 
         headers = {
-            "Authorization": f"Bearer {ACCESS_TOKEN}",
+            "Authorization": f"Bearer {GHL_API_KEY}",
             "Version": GHL_API_VERSION,
             "Content-Type": "application/json",
             "LocationId": location_id
